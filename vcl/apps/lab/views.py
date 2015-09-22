@@ -371,7 +371,7 @@ def create_status_alarm(instance_id):
         statistic = 'Average',
         comparison = '<=',
         description = 'Alarm that triggers when the instance CPU goes less than 10% for 60 minutes',
-        threshold = 10,
+        threshold = 5,
         period = 3600,
         evaluation_periods = 1,
         dimensions = {'InstanceId':instance_id},
