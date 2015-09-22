@@ -226,6 +226,9 @@ apt-get install --force-yes freenx-server
         print '.'
         time.sleep(5)
         instance.update()
+        
+    create_status_alarm(instance.id)
+    
     return 'Your instance has been created and is running at', instance.dns_name, '  Please use NX Viewer or remote desktop to connect.'
 
 def create_rdp_file(request):
@@ -344,3 +347,33 @@ def list_instances(ami='ami-',
 				machines[instance.id] = {'instance_name': instance_name,'coursecode': coursecode, 'instance_type': instance.instance_type, 'lab_auth_info': lab_auth_info, 'instance_id': instance.id, 'connect_info': connect_info ,'instance_state': instance.state, 'ami_id': instance.image_id, 'public_dns': instance.public_dns_name,'insert':str(instance_name)}
 
 		return machines
+		
+
+def create_status_alarm(instance_id):
+    ec2_conn = boto.ec2.connect_to_region()
+    
+    cloudwatch_conn = boto.ec2.cloudwatch.connect_to_region()
+
+    reservations = ec2_conn.get_all_instances(filters = {'instance-id': instance_id})
+    if reservations and reservations[0].instances:
+        instance = reservations[0].instances[0]
+        instance_name = instance.tags['Name']
+    else:
+        print "Invalid instance-id!"
+        sys.exit(1)
+    alarm = boto.ec2.cloudwatch.alarm.MetricAlarm(
+        connection = cloudwatch_conn,
+        name = instance_id + " : " + instance_name + "-CPU Utilization less than 10%",
+        metric = 'CPUUtilization',
+        namespace = 'AWS/EC2',
+        statistic = 'Average',
+        comparison = '<=',
+        description = 'Alarm that triggers when the instance CPU goes less than 10% for 60 minutes',
+        threshold = 10,
+        period = 3600,
+        evaluation_periods = 1,
+        dimensions = {'InstanceId':instance_id},
+        alarm_actions = 'arn:aws:automate:us-east-1:ec2:stop',
+    )
+    cloudwatch_conn.put_metric_alarm(alarm)
+
