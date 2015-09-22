@@ -297,13 +297,14 @@ def terminate_instance(iid):
     ec2 = boto.connect_ec2()
     reservations = ec2.get_all_instances(filters={'instance-id': iid})
     instance = reservations[0].instances[0]
+    delete_status_alarm(iid)
     iid = [instance.id]
     instance_state = ec2.terminate_instances(iid)
     while instance.state != 'stopped':
         print '.'
         time.sleep(5)
         instance.update()
-	delete_status_alarm(iid)
+	
 	
 def list_instances(ami='ami-',
                    instance_type='t1.micro',
