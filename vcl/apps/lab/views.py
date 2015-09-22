@@ -15,7 +15,7 @@ import time
 import boto
 import boto.manage.cmdshell
 import boto.manage.server
-
+import boto.ec2.cloudwatch
 
 
 # Create your views here.
@@ -303,7 +303,8 @@ def terminate_instance(iid):
         print '.'
         time.sleep(5)
         instance.update()
-		
+	delete_status_alarm(iid)
+	
 def list_instances(ami='ami-',
                    instance_type='t1.micro',
                    key_name='instance_key',
@@ -350,9 +351,9 @@ def list_instances(ami='ami-',
 		
 
 def create_status_alarm(instance_id):
-    ec2_conn = boto.ec2.connect_to_region()
+    ec2_conn = boto.ec2.connect_to_region("us-east-1")
     
-    cloudwatch_conn = boto.ec2.cloudwatch.connect_to_region()
+    cloudwatch_conn = boto.ec2.cloudwatch.connect_to_region("us-east-1")
 
     reservations = ec2_conn.get_all_instances(filters = {'instance-id': instance_id})
     if reservations and reservations[0].instances:
@@ -377,3 +378,19 @@ def create_status_alarm(instance_id):
     )
     cloudwatch_conn.put_metric_alarm(alarm)
 
+def delete_status_alarm(instance_id):
+    ec2_conn = boto.ec2.connect_to_region("us-east-1")
+    
+    cloudwatch_conn = boto.ec2.cloudwatch.connect_to_region("us-east-1")
+
+    reservations = ec2_conn.get_all_instances(filters = {'instance-id': instance_id})
+    if reservations and reservations[0].instances:
+        instance = reservations[0].instances[0]
+        instance_name = instance.tags['Name']
+    else:
+        print "Invalid instance-id!"
+
+    alarm_name = instance_id + " : " + instance_name + "-CPU Utilization less than 10%";
+    list_alarms = []
+    list_alarms.append(alarm_name)
+    cloudwatch_conn.delete_alarms(list_alarms)
