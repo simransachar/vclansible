@@ -31,6 +31,9 @@
             <span class="icon-bar"></span>
           </button>
           <a class="navbar-brand" href="https://ischoolvcl.umd.edu">Virtual Computer Lab</a>
+	{% if is_instructor == "yes" %}
+	  <a class="navbar-brand" href="./instructor">Instructor Dashboard</a>
+        {% endif %}
         </div>
         <div class="collapse navbar-collapse">
           <ul class="nav navbar-nav navbar-right">
@@ -47,6 +50,7 @@
 <h1>Virtual Computer Lab</h1>
 <p>Use the Lab to Create your Virtual Labs. Please Stop the server once you are done with your work (Don't worry... Your Data will be Safe). Terminating the Server will erase all your data.</p>
 <p>Hi {{ myuser }},  Here are your machines.</p>
+</br> <b><font color="red">{{ error_msg }}</font></b>
 </div>
 	
 <h1>Manage existing lab machine</h1>
@@ -136,6 +140,7 @@
 				<input type="hidden" name="iid" value="{{ lab.amazonami }}" />
 				<input type="hidden" name="username" value="{{ myuser.username }}" />
 				<input type="hidden" name="coursecode" value="{{ lab.coursecode }}" />
+				<input type="hidden" name="instructor_id" value="{{ lab.instructor_id }}" />
 					<tr>
 						{% csrf_token %}
 						<td>{{ lab.coursename }}</td>

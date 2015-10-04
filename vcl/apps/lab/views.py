@@ -1,7 +1,7 @@
 from django.shortcuts import render, render_to_response, RequestContext
 
 from django.shortcuts import render_to_response, get_object_or_404
-from .models import computerlab
+from .models import computerlab,instructor
 from django.template import Context, loader, RequestContext
 from django.http import HttpResponseRedirect, HttpResponse
 from django.core.urlresolvers import reverse
@@ -34,6 +34,7 @@ def logout_view(request):
 def index(request):
     myuser = request.user
     action = 'Do Nothing'
+    result = ''
     if 'iid' in request.POST:
         iid = request.POST['iid']
 	if 'action' in request.POST:
@@ -46,8 +47,10 @@ def index(request):
         	iitype = request.POST['instance_type']
 		iid = request.POST['iid']
 		coursecode = request.POST['coursecode']
+		instructor_id = request.POST['instructor_id']
+		
 		try:
-		    result = create_instance(username=myuser.username, ami=iid, instance_type=iitype, classcode=coursecode)
+		    result = create_instance(username=myuser.username, ami=iid, instance_type=iitype, classcode=coursecode,instructor_id=instructor_id)
 		except:
 		    if iitype == 't1.micro':
 			iitype = 't2.micro'
@@ -55,16 +58,26 @@ def index(request):
 			iitype = 'm2.small'
 		    if iitype == 'm1.medium':
 			iitype = 'm2.medium'		
-		    result = create_instance(username=myuser.username, ami=iid, instance_type=iitype, classcode=coursecode)
+		    result = create_instance(username=myuser.username, ami=iid, instance_type=iitype, classcode=coursecode,instructor_id=instructor_id)
             if action == 'Terminate Server':
+		instructor.objects.filter(instance_id=iid).delete()
                 result = terminate_instance(iid)
             if action == 'Download Connection File':
 		public_dns = request.POST['public_dns']
 		result = create_rdp_file(public_dns)
+    
+    error_msg=''
+    if result == "IntegrityError":
+       error_msg = 'Only one server is allowed per course'
+   
     list_of_machines = list_instances(username=myuser.username)
     list_of_labs = computerlab.objects.all()
+    is_instructor = "no"
+    check_instructor = computerlab.objects.filter(instructor_id=myuser.username)
+    if check_instructor.count() > 0:
+	is_instructor = "yes" 	
     #my_lab_info = computerlab.objects.get(amazonami=list_of_machines['ami_id'])
-    return render_to_response('lab/index.html', {'list_of_machines':list_of_machines, 'myuser':myuser, 'action': action, 'list_of_labs':list_of_labs}, context_instance=RequestContext(request))
+    return render_to_response('lab/index.html', {'list_of_machines':list_of_machines,"is_instructor":is_instructor, 'error_msg':error_msg,'myuser':myuser, 'action': action, 'list_of_labs':list_of_labs}, context_instance=RequestContext(request))
      #output =  'Your instance is ready to use!  RDP or SSH to: ',instance.dns_name
     #return HttpResponseRedirect(reverse('lab.index', args=(output,)))
 
@@ -93,6 +106,7 @@ def create_instance(ami='ami-ddb239b4',
                     ssh_passwd=None,
                     username = '',
                     classcode='iSchool',
+		    instructor_id='',	
                     azone = 'us-east-1c'):
     """
     Launch an instance and wait for it to start running.
@@ -143,6 +157,11 @@ apt-get --yes remove --force-yes freenx-server
 apt-get install --force-yes freenx-server
 """
     #user_data = "apt-get install -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold'  -f -q -y freenx-server"
+    try:
+        new_register = instructor(instructor_id=instructor_id,course_id=classcode,student_id=username)
+	new_register.save()
+    except Exception as e:
+        return "IntegrityError"
 
     # Create a connection to EC2 service.
     # You can pass credentials in to the connect_ec2 method explicitly
@@ -212,7 +231,7 @@ apt-get install --force-yes freenx-server
     # returned by EC2.
 
     instance = reservation.instances[0]
-    machinename = classcode + "--" + username
+    machinename = classcode + "--" + username + "--Instructor:" + instructor_id
     #Add user tags to it
     instance.add_tag('username', username)
     instance.add_tag('classcode', classcode)
@@ -228,7 +247,12 @@ apt-get install --force-yes freenx-server
         instance.update()
         
     create_status_alarm(instance.id)
-    
+
+    try:
+    	new_register = instructor(instance_id=instance.id,instructor_id=instructor_id,course_id=classcode,student_id=username)
+    	new_register.save()
+    except Exception as e:
+        return "IntegrityError"
     return 'Your instance has been created and is running at', instance.dns_name, '  Please use NX Viewer or remote desktop to connect.'
 
 def create_rdp_file(request):
@@ -395,3 +419,45 @@ def delete_status_alarm(instance_id):
     list_alarms = []
     list_alarms.append(alarm_name)
     cloudwatch_conn.delete_alarms(list_alarms)
+
+
+
+def tutor(request):
+    myuser = request.user
+    action = 'Do Nothing'		
+    course = ''
+    if request.method == 'GET' and 'course' in request.GET:
+	course = request.GET['course']	
+
+    list_of_students = instructor.objects.filter(instructor_id=myuser.username)
+
+    student_instance_ids = []	
+    course_list = []	
+
+    for student in list_of_students:
+	student_instance_ids.append(student.instance_id)
+	course_list.append(student.course_id)
+
+    course_list = list(set(course_list))   
+
+    if len(course) > 0:
+	list_of_students = instructor.objects.filter(instructor_id=myuser.username,course_id=course)
+
+    instance_states = {}
+    aws_conn = boto.ec2.connection.EC2Connection()
+    res=aws_conn.get_all_instances(instance_ids=student_instance_ids)
+    instances = [i for r in res for i in r.instances]
+    for i in instances:
+        instance_states[i.id] = {'instance_state': i._state, 'public_dns': i.public_dns_name}
+
+    student_data = []
+    for student in list_of_students:
+	student_data.append({"course_id":student.course_id,"student_id":student.student_id,"instance_state":str(instance_states[student.instance_id]['instance_state']),"dsn":instance_states[student.instance_id]['public_dns']})
+    student_data = sorted(student_data, key=lambda k: k['instance_state']) 
+    
+    if 'action' in request.POST:
+	public_dns = request.POST['public_dns']
+        result = create_rdp_file(public_dns)			
+    return render_to_response('lab/instructor.html', {'student_data':student_data,'course_list':course_list, 'myuser':myuser,'action': action}, context_instance=RequestContext(request))
+
+

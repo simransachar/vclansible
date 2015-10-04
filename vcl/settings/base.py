@@ -95,16 +95,27 @@ WSGI_APPLICATION = 'vcl.wsgi.application'
 #     }
 # }
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql_psycopg2',
+#         'NAME': os.getenv('DATABASE_NAME', 'vcl'),
+#         'USER': os.getenv('DATABASE_USER', 'vcl'),
+#         'PASSWORD': os.getenv('DATABASE_PASSWORD', 'password'),
+#         'HOST': os.getenv('DATABASE_HOST', '127.0.0.1'),
+#         'PORT': os.getenv('DATABASE_PORT', '5432'),
+#     }
+# }
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': os.getenv('DATABASE_NAME', ''),
-        'USER': os.getenv('DATABASE_USER', ''),
-        'PASSWORD': os.getenv('DATABASE_PASSWORD', ''),
-        'HOST': os.getenv('DATABASE_HOST', '127.0.0.1'),
-        'PORT': os.getenv('DATABASE_PORT', '5432'),
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'vcl',
+	'USER': 'root',
+	'PASSWORD':'root',
+	'HOST':'',
     }
 }
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/

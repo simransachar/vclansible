@@ -11,6 +11,7 @@ class computerlab(models.Model):
 	coursecode = models.CharField(max_length=100)
 	coursesemester = models.CharField(max_length=100)
 	courseinstructor = models.CharField(max_length=100)
+	instructor_id = models.CharField(max_length=100)
 	amazonami = models.CharField(max_length=100)
 	date_created = models.DateTimeField('date published')
 	lab_auth_info = models.CharField(max_length=100)
@@ -19,3 +20,15 @@ class computerlab(models.Model):
 	instance_type = models.CharField(max_length=20)
 	def __unicode__(self):
 		return self.labname
+
+class instructor(models.Model):
+    instance_id = models.CharField(max_length=50)
+    instructor_id = models.CharField(max_length=50)
+    course_id = models.CharField(max_length=50)
+    student_id = models.CharField(max_length=50)	
+    student_name = models.CharField(max_length=50)
+    	
+
+    def __str__(self):              # __unicode__ on Python 2
+        return self.instructor_id
+
