@@ -27,7 +27,7 @@ class instructor(models.Model):
     course_id = models.CharField(max_length=50)
     student_id = models.CharField(max_length=50)	
     student_name = models.CharField(max_length=50)
-    	
+    credentials = models.CharField(max_length=100)   	
 
     def __str__(self):              # __unicode__ on Python 2
         return self.instructor_id

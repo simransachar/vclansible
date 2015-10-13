@@ -10,6 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import logout_then_login
 from django.contrib.auth import logout
 from django.contrib.auth.models import User
+
 import os
 import time
 import boto
@@ -44,21 +45,24 @@ def index(request):
             if action == 'Stop Server':
                 result = stop_instance(iid)
             if action == 'Create Server':
-        	iitype = request.POST['instance_type']
+        	iitype = str(request.POST['instance_type'])
 		iid = request.POST['iid']
 		coursecode = request.POST['coursecode']
 		instructor_id = request.POST['instructor_id']
+		credentials = request.POST['lab_auth_info']
 		
+		if iitype == 't1.micro':
+                  iitype = 't2.micro'
+                if iitype == 'm1.small':
+                  iitype = 'm2.small'
+                if iitype == 'm1.medium':
+                  iitype = 'm2.medium'
+
 		try:
-		    result = create_instance(username=myuser.username, ami=iid, instance_type=iitype, classcode=coursecode,instructor_id=instructor_id)
+		    result = create_instance(username=myuser.username, ami=iid, instance_type=iitype, classcode=coursecode,instructor_id=instructor_id,credentials=credentials)
 		except:
-		    if iitype == 't1.micro':
-			iitype = 't2.micro'
-		    if iitype == 'm1.small':
-			iitype = 'm2.small'
-		    if iitype == 'm1.medium':
-			iitype = 'm2.medium'		
-		    result = create_instance(username=myuser.username, ami=iid, instance_type=iitype, classcode=coursecode,instructor_id=instructor_id)
+		    iitype = 't2.micro'		
+    		    result = create_instance(username=myuser.username, ami=iid, instance_type=iitype, classcode=coursecode,instructor_id=instructor_id,credentials=credentials)
             if action == 'Terminate Server':
 		instructor.objects.filter(instance_id=iid).delete()
                 result = terminate_instance(iid)
@@ -69,7 +73,7 @@ def index(request):
     error_msg=''
     if result == "IntegrityError":
        error_msg = 'Only one server is allowed per course'
-   
+    
     list_of_machines = list_instances(username=myuser.username)
     list_of_labs = computerlab.objects.all()
     is_instructor = "no"
@@ -81,7 +85,7 @@ def index(request):
      #output =  'Your instance is ready to use!  RDP or SSH to: ',instance.dns_name
     #return HttpResponseRedirect(reverse('lab.index', args=(output,)))
 
-     
+    
 
 
 ###################################################
@@ -106,7 +110,8 @@ def create_instance(ami='ami-ddb239b4',
                     ssh_passwd=None,
                     username = '',
                     classcode='iSchool',
-		    instructor_id='',	
+		    instructor_id='',
+		    credentials='',		
                     azone = 'us-east-1c'):
     """
     Launch an instance and wait for it to start running.
@@ -157,12 +162,13 @@ apt-get --yes remove --force-yes freenx-server
 apt-get install --force-yes freenx-server
 """
     #user_data = "apt-get install -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold'  -f -q -y freenx-server"
-    try:
-        new_register = instructor(instructor_id=instructor_id,course_id=classcode,student_id=username)
-	new_register.save()
-    except Exception as e:
-        return "IntegrityError"
+    
+#    new_register = instructor(instructor_id=instructor_id,course_id=classcode,student_id=username)
+    count_of_records = instructor.objects.filter(instructor_id=instructor_id,course_id=classcode,student_id=username).count()
 
+    if count_of_records > 0:
+	return "IntegrityError"
+	
     # Create a connection to EC2 service.
     # You can pass credentials in to the connect_ec2 method explicitly
     # or you can use the default credentials in your ~/.boto config file
@@ -248,11 +254,9 @@ apt-get install --force-yes freenx-server
         
     create_status_alarm(instance.id)
 
-    try:
-    	new_register = instructor(instance_id=instance.id,instructor_id=instructor_id,course_id=classcode,student_id=username)
-    	new_register.save()
-    except Exception as e:
-        return "IntegrityError"
+    new_register = instructor(instance_id = instance.id,instructor_id=instructor_id,course_id=classcode,student_id=username,credentials = credentials)	
+    new_register.save()
+
     return 'Your instance has been created and is running at', instance.dns_name, '  Please use NX Viewer or remote desktop to connect.'
 
 def create_rdp_file(request):
@@ -389,15 +393,15 @@ def create_status_alarm(instance_id):
         sys.exit(1)
     alarm = boto.ec2.cloudwatch.alarm.MetricAlarm(
         connection = cloudwatch_conn,
-        name = instance_id + " : " + instance_name + "-CPU Utilization less than 10%",
+        name = instance_id + " : " + instance_name + "-CPU Utilization less than 5%",
         metric = 'CPUUtilization',
         namespace = 'AWS/EC2',
-        statistic = 'Average',
+        statistic = 'Maximum',
         comparison = '<=',
-        description = 'Alarm that triggers when the instance CPU goes less than 10% for 60 minutes',
+        description = 'Alarm that triggers when the instance CPU goes less than 5% for 1 hour',
         threshold = 5,
         period = 3600,
-        evaluation_periods = 1,
+        evaluation_periods = 2,
         dimensions = {'InstanceId':instance_id},
         alarm_actions = 'arn:aws:automate:us-east-1:ec2:stop',
     )
@@ -452,7 +456,7 @@ def tutor(request):
 
     student_data = []
     for student in list_of_students:
-	student_data.append({"course_id":student.course_id,"student_id":student.student_id,"instance_state":str(instance_states[student.instance_id]['instance_state']),"dsn":instance_states[student.instance_id]['public_dns']})
+	student_data.append({"course_id":student.course_id,"student_id":student.student_id,"credentials":student.credentials,"instance_state":str(instance_states[student.instance_id]['instance_state']),"dsn":instance_states[student.instance_id]['public_dns']})
     student_data = sorted(student_data, key=lambda k: k['instance_state']) 
     
     if 'action' in request.POST:

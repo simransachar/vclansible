@@ -81,6 +81,7 @@
 				 <th>Course</th>
 				 <th>StudentID</th>
 				 <th>Instance State</th>
+				 <th>credentials</th>
 				 <th>Instance Control</th>
 				</tr>
 			</thead>	
@@ -109,6 +110,7 @@
 
 							{% endif %}
 						</td>
+						<td>{{ student.credentials }}</td>
 						<td>
 							{% if student.dsn|length > 1 %}
  							 <a class="btn btn-info" href="./downloadrdp/?public_dns={{ student.dsn }}"><i class="glyphicon glyphicon-cloud-download"></i>  Download RDP File</a>
