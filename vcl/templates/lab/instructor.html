@@ -83,6 +83,7 @@
 				 <th>Instance State</th>
 				 <th>credentials</th>
 				 <th>Instance Control</th>
+				 <th>Machine Address</th>
 				</tr>
 			</thead>	
 			
@@ -119,6 +120,15 @@
 							Not Available
 							{% endif %}
 						</td>
+
+						<td>
+                                                        {% if student.dsn|length > 1 %}
+                                                         {{ student.dsn }}
+                                                        {% else %}
+                                                        Not Available
+                                                        {% endif %}
+                                                </td>
+
 					</tr>
 				</form>
 			{% endfor %}

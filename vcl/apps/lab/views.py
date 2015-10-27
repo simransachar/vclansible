@@ -17,7 +17,7 @@ import boto
 import boto.manage.cmdshell
 import boto.manage.server
 import boto.ec2.cloudwatch
-
+import re
 
 # Create your views here.
 def home(request):
@@ -51,12 +51,12 @@ def index(request):
 		instructor_id = request.POST['instructor_id']
 		credentials = request.POST['lab_auth_info']
 		
-		if iitype == 't1.micro':
-                  iitype = 't2.micro'
-                if iitype == 'm1.small':
-                  iitype = 'm2.small'
-                if iitype == 'm1.medium':
-                  iitype = 'm2.medium'
+#		if iitype == 't1.micro':
+#                  iitype = 't2.micro'
+#                if iitype == 'm1.small':
+#                  iitype = 'm2.small'
+#                if iitype == 'm1.medium':
+#                  iitype = 'm2.medium'
 
 		try:
 		    result = create_instance(username=myuser.username, ami=iid, instance_type=iitype, classcode=coursecode,instructor_id=instructor_id,credentials=credentials)
@@ -296,8 +296,11 @@ full address:s:%s
 
 	#tmpfile = tmpfile+"full address:s:"+public_dns
 	#writer.writerow([tmpfile])
+	find = re.compile(r"^[^.]*")
+	filename = re.search(find, public_dns).group(0)
+	filename = filename + ".rdp"
         response = HttpResponse(tmpfile, content_type="application/x-rdp")
-        response['Content-Disposition'] = 'attachment; filename=connect.rdp'
+        response['Content-Disposition'] = "attachment; filename="+ filename
 	return response
 def start_instance(iid):         
     ec2 = boto.connect_ec2()
